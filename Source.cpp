@@ -29,7 +29,7 @@ struct Vector2
     Vector2() = default;
     Vector2(const Vector2 &v) = default;
     Vector2(Vector2&&) = default;
-    Vector2(const double vx, const double vy, const double vz, const int y);
+    Vector2(const double vx, const double vy, const double vz, const int y, const double z_inter);
 
     double dist2(const Vector2 &v) const;
     double dist(const Vector2 &v) const;
@@ -51,8 +51,8 @@ public:
 };
 
 
-Vector2::Vector2(const double vx, const double vy, double vz = 0, int y = 2016) :
-    x(vx), y(vy), z(vz), year(y)
+Vector2::Vector2(const double vx, const double vy, double vz = 0, int y = 2016, double z_inter = 0) :
+    x(vx), y(vy), z(vz), year(y), z_interpolation(z_inter)
 {}
 
 double
@@ -211,7 +211,7 @@ struct Edge
     const VertexType *w;
 
     double get_y(double x) const {
-        if (v->x == w->x) return v->y;
+        if (v->x == w->x) return std::min(v->y, w->y);
         return v->y + (w->y - v->y) * (x - v->x) / (w->x - v->x);
     }
     bool isBad = false;
@@ -480,12 +480,25 @@ bool point_in_edge(const Vector2 &p, const Edge &e)
 std::vector < std::pair<Vector2, std::pair<Edge, Edge>>> scanline(Delaunay &triangulation, std::vector<Vector2> pnt) {
 
 
-    std::vector<Edge> a = triangulation.getEdges();
+    std::vector<Edge> a1 = triangulation.getEdges(), a;
     using namespace std;
+    cout << a1.size() << " ";
 
+
+    auto it = a1.begin();
+    while (it != a1.end()) {
+        auto edge = *it;
+        if (edge.v->x != edge.w->x) {
+            a.push_back(edge);
+        }
+            it++;
+    }
+
+    cout << a.size() << " \n";
     std::vector < std::pair<Vector2, std::pair<Edge, Edge>>> ans;
 
     int n = a.size();
+
     std::vector<event> e;
     for (int i = 0; i < n; ++i) {
         e.push_back(event(std::min(a[i].v->x, a[i].w->x), +1, i));
@@ -590,18 +603,17 @@ double interpolation(const Edge &a, const Edge &b, const Vector2 &p) {
         p1 = v2;
         p2 = v4;
         p0 = v1;
-    }
+    } else
     if (v1 == v4) {
         p1 = v2;
         p2 = v3;
         p0 = v1;
-    }
+    } else
     if (v2 == v3) {
         p1 = v1;
         p2 = v4;
         p0 = v2;
-    }
-    if (v2 == v4) {
+    } else{
         p1 = v1;
         p2 = v3;
         p0 = v2;
@@ -610,7 +622,8 @@ double interpolation(const Edge &a, const Edge &b, const Vector2 &p) {
     double b1 = p1.y - p0.y, b2 = p2.y - p0.y;
     double c1 = p1.z - p0.z, c2 = p2.z - p0.z;
     if (a1*b2 - a2 * b1 == 0) {
-        std::cout << "!";
+        double d1 = p1.x - p.x;
+        std::cout << v1.x - v3.x << " " << v1.x - v4.x << " " << v2.x - v3.x << " " << v2.x - v4.x << " " << d1 <<  " !";
     }
     return p0.z + ((p.y - p0.y) * (a1 * c2 - a2 * c1) + (p.x - p0.x)*(c1*b2 - c2 * b1)) / (a1*b2 - a2 * b1);
 }
@@ -981,7 +994,7 @@ int main(int argc, char * argv[])
 
     double min_x = std::max(min_x_16, min_x_18), min_y = std::max(min_y_16, min_y_18);
     double max_x = std::min(max_x_16, max_x_18), max_y = std::min(max_y_16, max_y_18);
-    double delta = sqrt(((max_x - min_x) *(max_y - min_y)) * 100000 / 6206696);
+    double delta = sqrt(((max_x - min_x) *(max_y - min_y)) * 500 / 6206696);
 
     double a_x = 800 / (max_x - min_x), b_x = (-800 * min_x) / (max_x - min_x);
     double a_y = 600 / (max_y - min_y), b_y = (-600 * min_y) / (max_y - min_y);
@@ -991,7 +1004,7 @@ int main(int argc, char * argv[])
     x = min_x + (max_x - min_x) / 2, y = min_y + (max_y - min_y) / 2;
 
     for (auto i : v_16) {
-        if (i.x >= x -  delta && i.x <= x + delta  && i.y >= y - delta && i.y <= y + delta) {
+        if (i.x >= x - delta && i.x <= x + delta  && i.y >= y - delta && i.y <= y + delta) {
             v_16_delta.push_back(i);
         }
     }
@@ -1062,7 +1075,7 @@ int main(int argc, char * argv[])
 
 
 
-    //=============== œÓÒÚÓÂÌËÂ ‚˚ÔÛÍÎ˚ı Ó·ÓÎÓ˜ÂÍ ================
+    //=============== –ü–æ—Å—Ç—Ä–æ–µ–Ω–∏–µ –≤—ã–ø—É–∫–ª—ã—Ö –æ–±–æ–ª–æ—á–µ–∫ ================
 
 
     std::vector<Vector2> conv_16(points_16.size());
@@ -1085,7 +1098,7 @@ int main(int argc, char * argv[])
     std::reverse(conv_18.begin(), conv_18.end());
 
 
-    // ============================== Œ“¡Œ– “Œ◊≈  ====================================
+    // ============================== –û–¢–ë–û–† –¢–û–ß–ï–ö ====================================
 
 
 
@@ -1128,7 +1141,7 @@ int main(int argc, char * argv[])
 
 
 
-    // =========================== “–»¿Õ√”Àﬂ÷»» ==================================
+    // =========================== –¢–†–ò–ê–ù–ì–£–õ–Ø–¶–ò–ò ==================================
 
 
 
@@ -1236,7 +1249,7 @@ int main(int argc, char * argv[])
     }
 
 
-    // ================================ Œ¡Ÿ¿ﬂ “–»¿Õ√”Àﬂ÷»ﬂ ====================================
+    // ================================ –û–ë–©–ê–Ø –¢–†–ò–ê–ù–ì–£–õ–Ø–¶–ò–Ø ====================================
     std::cout << point_16_in_trian_18.size() << " " << point_18_in_trian_16.size() << " ";
 
     for (int i = 0; i < point_18_in_trian_16.size(); i++) {
