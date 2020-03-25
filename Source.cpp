@@ -9,6 +9,7 @@
 #include <limits>
 #include <set>
 #include <map>
+#include <iomanip>
 
 #include <SFML/Graphics.hpp>
 #include "triangulation.h"
@@ -482,7 +483,6 @@ std::vector < std::pair<Vector2, std::pair<Edge, Edge>>> scanline(Delaunay &tria
 
     std::vector<Edge> a1 = triangulation.getEdges(), a;
     using namespace std;
-    cout << a1.size() << " ";
 
 
     auto it = a1.begin();
@@ -494,7 +494,6 @@ std::vector < std::pair<Vector2, std::pair<Edge, Edge>>> scanline(Delaunay &tria
             it++;
     }
 
-    cout << a.size() << " \n";
     std::vector < std::pair<Vector2, std::pair<Edge, Edge>>> ans;
 
     int n = a.size();
@@ -735,10 +734,13 @@ double vol_diff(Triangle tria) {
 
     if ((a >= 0 && b >= 0 && c >= 0) || (a <= 0 && b <= 0 && c <= 0)) {
         //std::cout << " fir ";
-        double v = (abs(a) + abs(b) + abs(c)) / 3 * tria_area(p1, p2, p3);
-
+        double v = - (a + b + c) / 3 * tria_area(p1, p2, p3);
+        //std::cout << v << "\n";
         return v;
     }
+
+
+
     Vector2 m, n;
     bool f = false;
     if ((a > 0 && c > 0 && b < 0)) {
@@ -806,6 +808,9 @@ double vol_diff(Triangle tria) {
         v = (h_b_mnb1*s_mnb1 + h_m_aa1c*s_aa1c + h_m_ac1c*s_ac1c + h_m_ncc1*s_ncc1) / 3;
         return v;
     }
+
+
+
 
 
     a = -a, b = -b, c = -c;
@@ -893,7 +898,6 @@ double vol_diff(Triangle tria) {
     }
 
     if (c == 0 && b > 0 && a < 0) {
-        //std::cout << "c2\n";
 
         std::swap(a_16, c_16);
         std::swap(a_18, c_18);
@@ -915,7 +919,7 @@ double vol_diff(Triangle tria) {
 
 
 
-Delaunay triangulation(std::vector<Vector2> &points_16_in_conv, sf::RenderWindow &window, sf::Color cl)
+Delaunay triangulation(std::vector<Vector2> &points_16_in_conv, sf::RenderWindow &window, sf::Color cl, double a_x, double b_x, double a_y, double b_y, bool draw)
 {
     Delaunay triangulation_16;
     auto start = std::chrono::high_resolution_clock::now();
@@ -925,31 +929,82 @@ Delaunay triangulation(std::vector<Vector2> &points_16_in_conv, sf::RenderWindow
 
     std::cout << triangles_16.size() << " triangles generated in " << diff.count() << "s\n";
 
-    const std::vector<Edge> edges_16 = triangulation_16.getEdges();
+    if (draw) {
+        auto traingles = triangulation_16.getTriangles();
 
 
-    std::vector<std::array<sf::Vertex, 2> > lines;
+       /* for (auto i : traingles) {
+            sf::ConvexShape pols;
 
-    for (int i = 0; i < edges_16.size() - 1; i++) {
-        sf::VertexArray line(sf::Lines, 2);
-        line[0].position = sf::Vector2f(
-            static_cast<float>(edges_16[i].v->x + 2.),
-            static_cast<float>(edges_16[i].v->y + 2.));
+            pols.setPointCount(3);
+            pols.setPoint(0, sf::Vector2f(a_x * i.a->x + b_x + 2., a_y * i.a->y + b_y +2.));
+            pols.setPoint(1, sf::Vector2f(a_x * i.b->x + b_x + 2., a_y * i.b->y + b_y +2.));
+            pols.setPoint(2, sf::Vector2f(a_x * i.c->x + b_x + 2., a_y * i.c->y + b_y+2.));
+            pols.setOutlineColor(cl);
+            pols.setOutlineThickness(0.5);
 
-        line[0].color = cl;
-        line[1].position = sf::Vector2f(
-            static_cast<float>(edges_16[i].w->x + 2.),
-            static_cast<float>(edges_16[i].w->y + 2.));
-        line[1].color = cl;
-        window.draw(line);
+            pols.setFillColor(sf::Color::Transparent);
+            window.draw(pols);
 
+
+        }*/
+
+        const std::vector<Edge> edges_16 = triangulation_16.getEdges();
+
+        std::cout << edges_16.size() << " " << traingles.size() << "\n";
+
+        std::vector<std::array<sf::Vertex, 2> > lines;
+
+        for (int i = 0; i < edges_16.size() - 1; i++) {
+            sf::VertexArray line(sf::Lines, 2);
+            line[0].position = sf::Vector2f(
+                static_cast<float>(a_x * edges_16[i].v->x + b_x+ 2.),
+                static_cast<float>(a_y*edges_16[i].v->y + + b_y+ 2.));
+
+            line[0].color = cl;
+            line[1].position = sf::Vector2f(
+                static_cast<float>(a_x * edges_16[i].w->x + b_x + 2.),
+                static_cast<float>(a_y*edges_16[i].w->y + +b_y + 2.));
+            line[1].color = cl;
+            window.draw(line);
+
+        }
     }
-
     return triangulation_16;
 }
 
 
+std::vector<Vector2> del_outlier(Delaunay &traing)
+{
+    std::map<Vector2, double> points;
+    auto traingles = traing.getTriangles();
 
+    for (auto i : traingles) {
+        double z = std::min(std::min(i.a->z, i.b->z), i.c->z);
+
+        if (points.find(*(i.a)) != points.end()) {
+            points[*(i.a)] = std::min(points[*(i.a)], z);
+        } else {
+            points[*(i.a)] = z;
+        }
+        if (points.find(*(i.b)) != points.end()) {
+            points[*(i.b)] = std::min(points[*(i.b)], z);
+        } else {
+            points[*(i.b)] = z;
+        }
+        if (points.find(*(i.c)) != points.end()) {
+            points[*(i.c)] = std::min(points[*(i.c)], z);
+        }
+        else {
+            points[*(i.c)] = z;
+        }
+    }
+    std::vector<Vector2> vert;
+    for (auto i: points) {
+        vert.push_back(Vector2(i.first.x, i.first.y, i.second, i.first.year, i.first.z_interpolation));
+    }
+    return vert;
+}
 
 
 
@@ -962,8 +1017,8 @@ int main(int argc, char * argv[])
     double min_x_16 = 10000, min_x_18 = 10000, min_y_16 = 10000, min_y_18 = 1000;
     double max_x_16 = 0, max_x_18 = 0, max_y_16 = 0, max_y_18 = 0;
 
-    f = freopen("2018.txt", "r", stdin);
-    while (fscanf(f, "%lf%lf%lf%lf%lf%lf%lf%lf%lf", &x, &y, &z, &t7, &t2, &t3, &t4, &t5, &t6) == 9) {
+    f = freopen("p_18.txt", "r", stdin);
+    while (fscanf(f, "%lf%lf%lf", &x, &y, &z) == 3) {
         v_18.push_back(Vector2(x, y, z, 2018));
         if (x < min_x_18)
             min_x_18 = x;
@@ -977,8 +1032,9 @@ int main(int argc, char * argv[])
     std::cout << v_18.size() << std::endl;
     fclose(f);
 
-    f = freopen("2016.txt", "r", stdin);
-    while (fscanf(f, "%lf%lf%lf%lf%lf%lf%lf%lf%lf", &x, &y, &z, &t7, &t2, &t3, &t4, &t5, &t6) == 9) {
+    f = freopen("p_16.txt", "r", stdin);
+    
+    while (fscanf(f, "%lf%lf%lf", &x, &y, &z) == 3) {
         v_16.push_back(Vector2(x, y, z, 2016));
         if (x < min_x_16)
             min_x_16 = x;
@@ -994,34 +1050,46 @@ int main(int argc, char * argv[])
 
     double min_x = std::max(min_x_16, min_x_18), min_y = std::max(min_y_16, min_y_18);
     double max_x = std::min(max_x_16, max_x_18), max_y = std::min(max_y_16, max_y_18);
-    double delta = sqrt(((max_x - min_x) *(max_y - min_y)) * 500 / 6206696);
+    double delta = sqrt(((max_x - min_x) *(max_y - min_y)) * 5000 / 6206696);
 
-    double a_x = 800 / (max_x - min_x), b_x = (-800 * min_x) / (max_x - min_x);
-    double a_y = 600 / (max_y - min_y), b_y = (-600 * min_y) / (max_y - min_y);
+   // double a_x = 800 / (max_x - min_x), b_x = (-800 * min_x) / (max_x - min_x);
+   // double a_y = 600 / (max_y - min_y), b_y = (-600 * min_y) / (max_y - min_y);
 
 
-    std::cout << "jjfjgng " << a_x << " " << b_x << "\n";
+   // std::cout << "jjfjgng " << a_x << " " << b_x << "\n";
     x = min_x + (max_x - min_x) / 2, y = min_y + (max_y - min_y) / 2;
 
+   // double x_left = x + 11* delta, x_right = x + 13 * delta, y_down = y + 11 * delta, y_up = y + 13 * delta;
+
+    //double x_left = x - 3 * delta, x_right = x - delta, y_down = y - 10 * delta, y_up = y -8 * delta;
+
+
+    double x_left = x - 0 * delta, x_right = x +  delta, y_down = y -  0 * delta, y_up = y + delta ;
+
+
+
+    std::cout << std::setprecision(10) << "x_coord_rect: " << x_left << " " <<  x_right
+        << " y_coord_rect: " << y_down << " " << y_up << std::endl;
+
     for (auto i : v_16) {
-        if (i.x >= x - delta && i.x <= x + delta  && i.y >= y - delta && i.y <= y + delta) {
+        if (i.x >= x_left && i.x <= x_right  && i.y >= y_down && i.y <= y_up) {
             v_16_delta.push_back(i);
         }
     }
 
     for (auto i : v_18) {
-        if (i.x >= x - delta && i.x <= x + delta  && i.y >= y - delta && i.y <= y + delta) {
+        if (i.x >= x_left && i.x <= x_right  && i.y >= y_down && i.y <= y_up) {
             v_18_delta.push_back(i);
         }
     }
 
     std::cout << v_16.size() << "\n";
-    std::cout << min_x_16 << " " << max_x_16 << " " << min_y_16 << " " << max_y_16 << std::endl;
-    std::cout << min_x_18 << " " << max_x_18 << " " << min_y_18 << " " << max_y_18 << std::endl;
+    //std::cout << min_x_16 << " " << max_x_16 << " " << min_y_16 << " " << max_y_16 << std::endl;
+    //std::cout << min_x_18 << " " << max_x_18 << " " << min_y_18 << " " << max_y_18 << std::endl;
 
-    std::cout << delta << std::endl;
+    //std::cout << delta << std::endl;
 
-    std::cout << v_16_delta.size() << " " << v_18_delta.size() << "\n";
+    //std::cout << "number points in rect " << v_16_delta.size() << " " << v_18_delta.size() << "\n";
 
     fclose(f);
 
@@ -1075,7 +1143,7 @@ int main(int argc, char * argv[])
 
 
 
-    //=============== –ü–æ—Å—Ç—Ä–æ–µ–Ω–∏–µ –≤—ã–ø—É–∫–ª—ã—Ö –æ–±–æ–ª–æ—á–µ–∫ ================
+    //=============== œÓÒÚÓÂÌËÂ ‚˚ÔÛÍÎ˚ı Ó·ÓÎÓ˜ÂÍ ================
 
 
     std::vector<Vector2> conv_16(points_16.size());
@@ -1098,37 +1166,74 @@ int main(int argc, char * argv[])
     std::reverse(conv_18.begin(), conv_18.end());
 
 
-    // ============================== –û–¢–ë–û–† –¢–û–ß–ï–ö ====================================
+    // ============================== Œ“¡Œ– “Œ◊≈  ====================================
 
 
 
     std::vector<Vector2> points_18_in_conv;
 
-
+    min_x_16 = 10000;
+    min_x_18 = 10000;
+    min_y_16 = 10000;
+    min_y_18 = 10000;
+    max_x_16 = 0;
+    max_x_18 = 0;
+    max_y_16 = 0;
+    max_y_18 = 0;
     for (auto p : points_18) {
         if (point_in_polygon(conv_16.size(), conv_16, p)) {
             points_18_in_conv.push_back(p);
+            double x = p.x, y = p.y;
+            if (x < min_x_18)
+                min_x_18 = x;
+            if (x > max_x_18)
+                max_x_18 = x;
+            if (y < min_y_18)
+                min_y_18 = y;
+            if (y > max_y_18)
+                max_y_18 = y;
         }
     }
 
-
-    for (const auto p : points_18_in_conv) {
-        sf::RectangleShape s{ sf::Vector2f(2, 2) };
-        s.setPosition(static_cast<float>(p.x), static_cast<float>(p.y));
-        s.setFillColor(sf::Color::Red);
-        window.draw(s);
-    }
 
     std::vector<Vector2> points_16_in_conv;
 
     for (auto p : points_16) {
         if (point_in_polygon(conv_18.size(), conv_18, p)) {
             points_16_in_conv.push_back(p);
+            double x = p.x, y = p.y;
+            if (x < min_x_16)
+                min_x_16 = x;
+            if (x > max_x_16)
+                max_x_16 = x;
+            if (y < min_y_16)
+                min_y_16 = y;
+            if (y > max_y_16)
+                max_y_16 = y;
         }
+        
     }
+
+    min_x = std::max(min_x_16, min_x_18);
+    min_y = std::max(min_y_16, min_y_18);
+    max_x = std::min(max_x_16, max_x_18);
+    max_y = std::min(max_y_16, max_y_18);
+
+    double a_x = 800 / (max_x - min_x), b_x = (-800 * min_x) / (max_x - min_x);
+    double a_y = 600 / (max_y - min_y), b_y = (-600 * min_y) / (max_y - min_y);
+
+    std::cout << "jjfjgng " << a_x << " " << b_x << "\n";
+
+    for (const auto p : points_18_in_conv) {
+        sf::RectangleShape s{ sf::Vector2f(2, 2) };
+        s.setPosition(static_cast<float>(a_x * p.x + b_x), static_cast<float>(a_y * p.y + b_y));
+        s.setFillColor(sf::Color::Red);
+        window.draw(s);
+    }
+
     for (const auto p : points_16_in_conv) {
         sf::RectangleShape s{ sf::Vector2f(2, 2) };
-        s.setPosition(static_cast<float>(p.x), static_cast<float>(p.y));
+        s.setPosition(static_cast<float>(a_x * p.x + b_x), static_cast<float>(a_y * p.y + b_y));
         s.setFillColor(sf::Color::Yellow);
         window.draw(s);
     }
@@ -1141,7 +1246,7 @@ int main(int argc, char * argv[])
 
 
 
-    // =========================== –¢–†–ò–ê–ù–ì–£–õ–Ø–¶–ò–ò ==================================
+    // =========================== “–»¿Õ√”Àﬂ÷»» ==================================
 
 
 
@@ -1150,12 +1255,16 @@ int main(int argc, char * argv[])
 
 
 
-    Delaunay triangulation_16((triangulation(points_16_in_conv, window, sf::Color::Cyan)));
-    Delaunay triangulation_18((triangulation(points_18_in_conv, window, sf::Color::Yellow)));
+    Delaunay triangulation_16((triangulation(points_16_in_conv, window, sf::Color::Cyan, a_x, b_x,a_y, b_y, false)));
+    Delaunay triangulation_18((triangulation(points_18_in_conv, window, sf::Color::Yellow, a_x, b_x, a_y, b_y, false)));
+
+    auto vert_16 = del_outlier(triangulation_16);
+    auto vert_18 = del_outlier(triangulation_18);
+
+    triangulation_16 = (triangulation(vert_16, window, sf::Color::Cyan, a_x, b_x, a_y, b_y, false));
+    triangulation_18 = (triangulation(vert_18, window, sf::Color::Yellow, a_x, b_x, a_y, b_y, false));
 
 
-
-    
 
     conv_18.push_back(conv_18[0]);
     conv_16.push_back(conv_16[0]);
@@ -1168,16 +1277,30 @@ int main(int argc, char * argv[])
     auto point_18_in_trian_16_tmp = scanline(triangulation_16, t);
     std::vector <Vector2> point_18_in_trian_16;
 
+    std::cout << "fjnfjfnjnng";
+
+
     for (int i = 0; i < point_18_in_trian_16_tmp.size(); i++) {
         auto pt = point_18_in_trian_16_tmp[i].first;
         auto res = point_18_in_trian_16_tmp[i].second;
 
         double z = interpolation(res.first, res.second, pt);
         if (z < 0 || z > 100) {
-            std::cout << abs(z) << std::endl;
+            //std::cout << (a_x * pt.x + b_x) << " " << (a_y * pt.y + b_y) << std::endl;
         }
 
+
         point_18_in_trian_16_tmp[i].first.z_interpolation = z;
+
+        if (point_18_in_trian_16_tmp[i].first.z_interpolation < point_18_in_trian_16_tmp[i].first.z)
+
+        {
+            sf::RectangleShape s{ sf::Vector2f(1, 1) };
+            s.setPosition(static_cast<float>(a_x * point_18_in_trian_16_tmp[i].first.x + b_x), static_cast<float>(a_y * point_18_in_trian_16_tmp[i].first.y + b_y));
+            s.setFillColor(sf::Color::Cyan);
+            window.draw(s);
+        }
+
 
         point_18_in_trian_16.push_back(point_18_in_trian_16_tmp[i].first);
     }
@@ -1201,55 +1324,25 @@ int main(int argc, char * argv[])
         double z = interpolation(res.first, res.second, pt);
         point_16_in_trian_18_tmp[i].first.z_interpolation = z;
 
-        if (z < 0 || z > 100) {
-            std::cout << abs(z) << std::endl;
+
+
+        if (point_16_in_trian_18_tmp[i].first.z_interpolation > point_16_in_trian_18_tmp[i].first.z)
+
+        {
+            sf::RectangleShape s{ sf::Vector2f(1, 1) };
+            s.setPosition(static_cast<float>(a_x * point_16_in_trian_18_tmp[i].first.x + b_x), static_cast<float>(a_y * point_16_in_trian_18_tmp[i].first.y + b_y));
+            s.setFillColor(sf::Color::Cyan);
+            window.draw(s);
         }
-
-        /* if ((abs(z) >= 25) || (abs(z) <= 23)) {
-             std::cout << abs(z) << std::endl;
-             std::cout << res.first << " " << res.second << " " << pt << "\n";
-
-             std::cout << (*res.first.v == *res.second.v) << " " << (*res.first.v == *res.second.w) << " "
-                 << (*res.first.w == *res.second.v) << " " << (*res.first.w == *res.second.w) << "\n";
-
-            // std ::cout << point
-
-         } */
 
 
         point_16_in_trian_18.push_back(point_16_in_trian_18_tmp[i].first);
 
-        sf::VertexArray line(sf::Lines, 2);
-        line[0].position = sf::Vector2f(
-            static_cast<float>(res.first.v->x + 2.),
-            static_cast<float>(res.first.v->y + 2.));
-
-        line[0].color = sf::Color::White;
-        line[1].position = sf::Vector2f(
-            static_cast<float>(res.first.w->x + 2.),
-            static_cast<float>(res.first.w->y + 2.));
-        line[1].color = sf::Color::White;
-        window.draw(line);
-
-        line[0].position = sf::Vector2f(
-            static_cast<float>(res.second.v->x + 2.),
-            static_cast<float>(res.second.v->y + 2.));
-
-        line[0].color = sf::Color::White;
-        line[1].position = sf::Vector2f(
-            static_cast<float>(res.second.w->x + 2.),
-            static_cast<float>(res.second.w->y + 2.));
-        line[1].color = sf::Color::White;
-        window.draw(line);
-
-        sf::RectangleShape s{ sf::Vector2f(3, 3) };
-        s.setPosition(static_cast<float>(pt.x), static_cast<float>(pt.y));
-        s.setFillColor(sf::Color::White);
-        window.draw(s);
     }
+   
 
 
-    // ================================ –û–ë–©–ê–Ø –¢–†–ò–ê–ù–ì–£–õ–Ø–¶–ò–Ø ====================================
+    // ================================ Œ¡Ÿ¿ﬂ “–»¿Õ√”Àﬂ÷»ﬂ ====================================
     std::cout << point_16_in_trian_18.size() << " " << point_18_in_trian_16.size() << " ";
 
     for (int i = 0; i < point_18_in_trian_16.size(); i++) {
@@ -1262,14 +1355,30 @@ int main(int argc, char * argv[])
 
 
 
-    Delaunay triangulation_total(triangulation(points_total, window, sf::Color::Red));
+    Delaunay triangulation_total(triangulation(points_total, window, sf::Color::White, a_x, b_x, a_y, b_y, true));
 
     auto ar = triangulation_total.getTriangles();
+
+    auto pnt = triangulation_total.getVertices();
+
     double vol_dif = 0, area = 0;
     for (auto v : ar) {
 
-
         double tmp = vol_diff(v);
+
+        if (tmp < 0) {
+            sf::ConvexShape pols;
+
+            pols.setPointCount(3);
+            pols.setPoint(0, sf::Vector2f(a_x * v.a->x + b_x, a_y * v.a->y + b_y));
+            pols.setPoint(1, sf::Vector2f(a_x * v.b->x + b_x, a_y * v.b->y + b_y));
+            pols.setPoint(2, sf::Vector2f(a_x * v.c->x + b_x, a_y * v.c->y + b_y));
+            pols.setOutlineColor(sf::Color::Cyan);
+            pols.setOutlineThickness(0.5);
+            pols.setFillColor(sf::Color::Cyan);
+            window.draw(pols);
+            
+        }
 
         /*if (tria_area(*v.a, *v.b, *v.c) < tmp) {
             std::cout << tria_area(*v.a, *v.b, *v.c) << " " << tmp << std::endl;
@@ -1281,11 +1390,23 @@ int main(int argc, char * argv[])
 
         */
 
-        vol_dif += tmp;
+        vol_dif += abs(tmp);
         area += tria_area(*v.a, *v.b, *v.c);
         //std::cout << "area "  << tria_area(*v.a, *v.b, *v.c) << " vol " << tmp << "\n";
     }
     std::cout << vol_dif << " " << area;
+
+    
+   /* for (auto p : pnt) {
+        double delta_z;
+        if (((p.year == 2016 && p.z < p.z_interpolation) || (p.year == 2018 && p.z > p.z_interpolation)) ){
+            sf::RectangleShape s{ sf::Vector2f(3, 3) };
+            s.setPosition(static_cast<float>(a_x * p.x + b_x), static_cast<float>(a_y * p.y + b_y));
+            s.setFillColor(sf::Color::Red);
+            window.draw(s);
+        }
+    }*/
+
     window.display();
 
     while (window.isOpen())
@@ -1298,9 +1419,7 @@ int main(int argc, char * argv[])
         }
     }
 
-    Vector2 v1(-3, 0, -2), v2(-4, -3, 1), v3(2, 3, 5), v4(4, 3, 10);
-    std::cout << seg_intersect(v1, v2, v3, v4);
-
+   
 
     return 0;
 
